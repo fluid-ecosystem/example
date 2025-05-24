@@ -1,7 +1,3 @@
-import org.apache.kafka.clients.producer.*;
-
-import java.util.Properties;
-
 public class Fluid {
     public static void main(String[] args)  throws InterruptedException {
         try {

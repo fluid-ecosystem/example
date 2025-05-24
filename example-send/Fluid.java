@@ -4,7 +4,7 @@ public class Fluid {
             for (int i = 0; i < 1000; i++) {
                 String key = "key-" + i;
                 String message = "Message " + i;
-                KafkaMessenger.sendMessage("test-topic1", message);
+                KafkaMessenger.sendMessage("kafka:9092", "test-topic1", null, message);
             }
         } finally {
             System.out.println("Shutting down Kafka producer...");

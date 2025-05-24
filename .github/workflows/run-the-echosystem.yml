@@ -25,6 +25,19 @@ jobs:
         with:
           name: fluid-builder-compose-logs
           path: logs.txt
+      - name: Count messages received
+        run: |
+          awk '
+          /example-receive[[:space:]]*\|[[:space:]]*1-Received:/ {c1++}
+          /example-receive[[:space:]]*\|[[:space:]]*2-Received:/ {c2++}
+          /example-receive[[:space:]]*\|[[:space:]]*3-Received:/ {c3++}
+          END {
+            printf "%-30s | %s\n", "Pattern", "Count"
+            printf "%-30s | %d\n", "example-receive | 1-Received:", c1+0
+            printf "%-30s | %d\n", "example-receive | 2-Received:", c2+0
+            printf "%-30s | %d\n", "example-receive | 3-Received:", c3+0
+          }
+          ' logs.txt
       - name: Stop and remove containers
         run: |
           docker compose down -v

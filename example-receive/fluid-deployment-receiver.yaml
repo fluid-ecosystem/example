@@ -16,6 +16,3 @@ spec:
         - name: fluid-container
           image: fluid-test-docker
           imagePullPolicy: IfNotPresent
-          env:
-            - name: ENTRY_FILENAME
-              value: Main.java

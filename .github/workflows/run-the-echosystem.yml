@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  push-to-dockerhub:
+  test-echosystem:
     runs-on: ubuntu-latest
 
     steps:

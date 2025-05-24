@@ -1,0 +1,22 @@
+name: Push to Dockerhub
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  push-to-dockerhub:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Run docker compose
+        run: |
+          docker compose up -d
+      - name: Shutdown after 3 minutes
+        run: |
+          sleep 180
+          docker compose logs -f
+          docker compose down -v

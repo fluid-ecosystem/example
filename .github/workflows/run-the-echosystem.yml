@@ -1,4 +1,4 @@
-name: Push to Dockerhub
+name: Test the Echosystem
 
 on:
   push:

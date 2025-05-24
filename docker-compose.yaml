@@ -46,17 +46,6 @@ services:
     environment:
       - BOOTSTRAP_SERVERS=kafka:9092
 
-  supervisor:
-    image: alpine
-    container_name: supervisor
-    depends_on:
-      - example-send
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - .:/app
-    working_dir: /app
-    command: sh supervisor.sh
-
 volumes:
   zookeeper_data:
   kafka_data:

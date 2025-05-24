@@ -1,4 +1,4 @@
-from maifeeulasad/fluid-builder:v20250523
+from maifeeulasad/fluid-builder:latest
 
 COPY pom.xml .
 COPY *.java .

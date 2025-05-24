@@ -18,5 +18,13 @@ jobs:
       - name: Shutdown after 3 minutes
         run: |
           sleep 180
-          docker compose logs
+          docker compose logs > logs.txt
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-builder-compose-logs
+          path: logs.txt
+      - name: Stop and remove containers
+        run: |
           docker compose down -v

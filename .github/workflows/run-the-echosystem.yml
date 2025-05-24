@@ -18,5 +18,5 @@ jobs:
       - name: Shutdown after 3 minutes
         run: |
           sleep 180
-          docker compose logs -f
+          docker compose logs
           docker compose down -v

@@ -10,11 +10,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: fluid
+      app: fluid-receiver
   template:
     metadata:
       labels:
-        app: fluid
+        app: fluid-receiver
     spec:
       containers:
         - name: fluid-container
@@ -24,9 +24,8 @@ spec:
 
 one shot deployment:
 ```
-# remove from kubeernates
-kubectl delete -f fluid-deployment-receiver.yaml
-kubectl delete -f fluid-deployment-receiver.yaml -n fluid-test 
+# remove any existing deployment
+kubectl delete -f fluid-deployment-receiver.yaml -n fluid-test --ignore-not-found
 # kafka-cluster:9092
 docker build -t fluid-test-docker .
 minikube image load fluid-test-docker

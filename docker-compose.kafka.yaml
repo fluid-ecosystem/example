@@ -1,18 +1,25 @@
-version: '3.8'
-
 services:
   kafka:
     image: apache/kafka:4.2.0
     container_name: kafka
     ports:
-      - "9092:9092"
+      # Only the EXTERNAL listener is published. Mapping 9092 was misleading:
+      # a host client completed the bootstrap, was handed back `kafka:9092`
+      # in the metadata response, and then failed to resolve that name.
+      - "29092:29092"
     environment:
       - KAFKA_NODE_ID=1
       - KAFKA_PROCESS_ROLES=broker,controller
-      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+
+      # Two listeners: PLAINTEXT is what containers on this network use and
+      # advertises the service name; EXTERNAL is for the host and advertises
+      # localhost. Each advertises an address that resolves for its audience.
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+
       - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
       - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
@@ -21,6 +28,16 @@ services:
       - KAFKA_NUM_PARTITIONS=3
     volumes:
       - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      # Listing topics needs a broker that has finished KRaft startup and can
+      # serve metadata, so it is a genuine readiness signal rather than a
+      # liveness one. A heavier consumer-group probe was measured and made no
+      # difference to startup behaviour, so the simpler one stands.
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 15s
 
 volumes:
   kafka_data:

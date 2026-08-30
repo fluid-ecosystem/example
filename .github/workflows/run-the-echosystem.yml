@@ -1,0 +1,110 @@
+name: Test the Echosystem
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      fluid_builder_ref:
+        description: 'fluid-builder ref to test against'
+        required: false
+        default: main
+
+env:
+  EXPECTED_PER_TOPIC: 1000
+
+jobs:
+  test-echosystem:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # The examples build FROM maifeeulasad/fluid-builder:latest. Pulling it
+      # would test whatever was last published rather than the code under
+      # review, so the base image is built from source and tagged locally.
+      - name: Checkout fluid-builder
+        uses: actions/checkout@v4
+        with:
+          repository: fluid-ecosystem/fluid-builder
+          ref: ${{ github.event.inputs.fluid_builder_ref || 'main' }}
+          path: .fluid-builder
+
+      - name: Build fluid-builder base image from source
+        run: |
+          docker build -t maifeeulasad/fluid-builder:latest -f .fluid-builder/Dockerfile .fluid-builder
+          echo "Base image built from $(git -C .fluid-builder rev-parse --short HEAD)"
+
+      - name: Start Docker Compose
+        run: docker compose up -d --build
+
+      # Replaces a fixed `sleep 180`. The sender emits a known number of
+      # messages, so wait for that many to arrive instead of guessing, and
+      # stop early once they have.
+      - name: Wait for messages
+        id: wait
+        run: |
+          set -uo pipefail
+          deadline=$(( SECONDS + 300 ))
+          while [ $SECONDS -lt $deadline ]; do
+            logs=$(docker compose logs example-receive 2>/dev/null || true)
+            c1=$(printf '%s' "$logs" | grep -c '1-Received:' || true)
+            c2=$(printf '%s' "$logs" | grep -c '2-Received:' || true)
+            c3=$(printf '%s' "$logs" | grep -c '3-Received:' || true)
+            echo "progress: 1=$c1 2=$c2 3=$c3 (target ${EXPECTED_PER_TOPIC} each)"
+            if [ "$c1" -ge "$EXPECTED_PER_TOPIC" ] \
+            && [ "$c2" -ge "$EXPECTED_PER_TOPIC" ] \
+            && [ "$c3" -ge "$EXPECTED_PER_TOPIC" ]; then
+              echo "all topics reached target"
+              break
+            fi
+            sleep 10
+          done
+
+      - name: Capture Docker Logs
+        if: always()
+        run: docker compose logs > logs.txt
+
+      - name: Upload Logs as Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fluid-builder-compose-logs
+          path: logs.txt
+
+      # The assertion. Previously this printed a table and ended, so awk
+      # exited 0 whatever the counts were and a run receiving nothing at all
+      # reported success.
+      - name: Assert message counts
+        if: always()
+        run: |
+          set -uo pipefail
+          awk -v expected="${EXPECTED_PER_TOPIC}" '
+            /example-receive[[:space:]]*\|[[:space:]]*1-Received:/ {c1++}
+            /example-receive[[:space:]]*\|[[:space:]]*2-Received:/ {c2++}
+            /example-receive[[:space:]]*\|[[:space:]]*3-Received:/ {c3++}
+            END {
+              printf "%-34s | %-8s | %-8s | %s\n", "Pattern", "Count", "Expected", "Status"
+              failed = 0
+              split("1 2 3", idx, " ")
+              counts[1] = c1 + 0; counts[2] = c2 + 0; counts[3] = c3 + 0
+              for (i = 1; i <= 3; i++) {
+                ok = (counts[i] == expected)
+                if (!ok) failed = 1
+                printf "%-34s | %-8d | %-8d | %s\n", \
+                  "example-receive | " i "-Received:", counts[i], expected, (ok ? "PASS" : "FAIL")
+              }
+              if (failed) {
+                print "\nMessage counts did not match. See the uploaded logs artifact."
+                exit 1
+              }
+              print "\nAll topics delivered the expected number of messages."
+            }
+          ' logs.txt
+
+      - name: Cleanup - Stop and Remove Containers
+        if: always()
+        run: docker compose down -v

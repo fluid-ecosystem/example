@@ -1,0 +1,12 @@
+# Dependencies are fetched at container start by DependencyDownloader and are
+# never committed. fluid-builder ignores this path for the same reason.
+lib/
+
+# Build output
+target/
+*.class
+
+# Editors
+.idea/
+*.iml
+.vscode/
